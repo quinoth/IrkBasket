@@ -24,6 +24,8 @@ def register():
         cur.close()
         conn.close()
         return jsonify({'message': 'Username or email already exists'}), 400
+        
+    password_hash = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt())
 
 if __name__ == "__main__":
     app.run(debug=True)
