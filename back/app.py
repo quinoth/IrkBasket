@@ -1,4 +1,5 @@
 from flask import Flask, request, jsonify
+import re
 import bcrypt
 import jwt
 import datetime
@@ -104,30 +105,48 @@ def update_user():
     if not auth_header or not auth_header.startswith('Bearer '):
         return jsonify({'message': 'Authorization header is missing or invalid'}), 401
     
-    token = auth_header.split(' ')[1].strip() 
+    token = auth_header.split(' ')[1].strip()
 
     try:
-        
         data = jwt.decode(token, app.config['SECRET_KEY'], algorithms=['HS256'])
         user_id = data['id']
-        update_data = request.get_json()
         
-        if not update_data or 'email' not in update_data:
+        update_data = request.get_json()
+        if not update_data:
+            return jsonify({'message': 'No data provided'}), 400
+            
+        if 'email' not in update_data:
             return jsonify({'message': 'Email is required'}), 400
             
-        email = update_data['email']
+        email = update_data['email'].strip()
         
+        if not re.match(r'^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$', email):
+            return jsonify({'message': 'Invalid email format'}), 400
+            
         conn = get_db_connection()
         cur = conn.cursor()
-        cur.execute("UPDATE users SET email = %s WHERE id = %s RETURNING id", (email, user_id))
-        updated_user = cur.fetchone()
-        conn.commit()
         
-        if not updated_user:
-            return jsonify({'message': 'User not found'}), 404
+        try:
+            cur.execute("SELECT id FROM users WHERE email = %s AND id != %s", (email, user_id))
+            if cur.fetchone():
+                return jsonify({'message': 'Email already in use by another user'}), 400
             
-        return jsonify({'message': 'Profile updated successfully'})
-        
+            cur.execute("UPDATE users SET email = %s WHERE id = %s RETURNING id", (email, user_id))
+            updated_user = cur.fetchone()
+            conn.commit()
+            
+            if not updated_user:
+                return jsonify({'message': 'User not found'}), 404
+                
+            return jsonify({
+                'message': 'Profile updated successfully',
+                'email': email
+            })
+            
+        except Exception as e:
+            conn.rollback()
+            return jsonify({'message': f'Database error: {str(e)}'}), 500
+            
     except jwt.ExpiredSignatureError:
         return jsonify({'message': 'Token expired'}), 401
     except jwt.InvalidTokenError as e:
