@@ -60,6 +60,11 @@ def login():
         return jsonify({'token': token})
     else:
         return jsonify({'message': 'Invalid credentials'}), 401
+        
+        
+@app.route('/user', methods=['GET'])
+def get_user():
+    pass
 
 if __name__ == "__main__":
     app.run(debug=True)
