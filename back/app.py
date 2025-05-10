@@ -15,6 +15,15 @@ def register():
 
     if not all([username, password, email, role]):
         return jsonify({'message': 'Missing fields'}), 400
+        
+    conn = get_db_connection()
+    cur = conn.cursor()
+    cur.execute("SELECT * FROM users WHERE username = %s OR email = %s", (username, email))
+    existing_user = cur.fetchone()
+    if existing_user:
+        cur.close()
+        conn.close()
+        return jsonify({'message': 'Username or email already exists'}), 400
 
 if __name__ == "__main__":
     app.run(debug=True)
