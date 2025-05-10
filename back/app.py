@@ -68,15 +68,32 @@ def login():
 def get_user():
     auth_header = request.headers.get('Authorization')
     if not auth_header or not auth_header.startswith('Bearer '):
-        return jsonify({'message': 'Missing or invalid Authorization header'}), 401
+        return jsonify({'message': 'Authorization header is missing or invalid'}), 401
     
-    token = auth_header.split()[1] 
-    
+    token = auth_header.split(' ')[1]  # Извлекаем токен после 'Bearer '
+
     try:
         data = jwt.decode(token, app.config['SECRET_KEY'], algorithms=['HS256'])
-        return jsonify({'user_id': data['id'], 'role': data['role']}), 200
+        user_id = data['id']
+        
+        conn = get_db_connection()
+        cur = conn.cursor()
+        cur.execute("SELECT id, username, email, role FROM users WHERE id = %s", (user_id,))
+        user = cur.fetchone()
+        cur.close()
+        conn.close()
+        
+        if user:
+            return jsonify({
+                'id': user[0],
+                'username': user[1],
+                'email': user[2],
+                'role': user[3]
+            })
+        return jsonify({'message': 'User not found'}), 404
+        
     except jwt.ExpiredSignatureError:
-        return jsonify({'message': 'Token expired'}), 401
+        return jsonify({'message': 'Token has expired'}), 401
     except jwt.InvalidTokenError as e:
         return jsonify({'message': f'Invalid token: {str(e)}'}), 401
 
