@@ -58,7 +58,7 @@ def login():
             'id': user[0],
             'role': user[4],
             'exp': datetime.datetime.utcnow() + datetime.timedelta(hours=1)
-        }, app.config['SECRET_KEY'], algorithm='HS256').decode('utf-8')
+        }, app.config['SECRET_KEY'], algorithm='HS256')
         
         return jsonify({'token': token})
     else:
@@ -70,7 +70,7 @@ def get_user():
     if not auth_header or not auth_header.startswith('Bearer '):
         return jsonify({'message': 'Authorization header is missing or invalid'}), 401
     
-    token = auth_header.split(' ')[1]  # Извлекаем токен после 'Bearer '
+    token = auth_header.split(' ')[1] 
 
     try:
         data = jwt.decode(token, app.config['SECRET_KEY'], algorithms=['HS256'])
@@ -100,7 +100,43 @@ def get_user():
         
 @app.route('/user/update', methods=['PUT'])
 def update_user():
-    pass
+    auth_header = request.headers.get('Authorization')
+    if not auth_header or not auth_header.startswith('Bearer '):
+        return jsonify({'message': 'Authorization header is missing or invalid'}), 401
+    
+    token = auth_header.split(' ')[1].strip() 
+
+    try:
+        
+        data = jwt.decode(token, app.config['SECRET_KEY'], algorithms=['HS256'])
+        user_id = data['id']
+        update_data = request.get_json()
+        
+        if not update_data or 'email' not in update_data:
+            return jsonify({'message': 'Email is required'}), 400
+            
+        email = update_data['email']
+        
+        conn = get_db_connection()
+        cur = conn.cursor()
+        cur.execute("UPDATE users SET email = %s WHERE id = %s RETURNING id", (email, user_id))
+        updated_user = cur.fetchone()
+        conn.commit()
+        
+        if not updated_user:
+            return jsonify({'message': 'User not found'}), 404
+            
+        return jsonify({'message': 'Profile updated successfully'})
+        
+    except jwt.ExpiredSignatureError:
+        return jsonify({'message': 'Token expired'}), 401
+    except jwt.InvalidTokenError as e:
+        return jsonify({'message': f'Invalid token: {str(e)}'}), 401
+    except Exception as e:
+        return jsonify({'message': f'Server error: {str(e)}'}), 500
+    finally:
+        if 'cur' in locals(): cur.close()
+        if 'conn' in locals(): conn.close()
 
 if __name__ == "__main__":
     app.run(debug=True)
