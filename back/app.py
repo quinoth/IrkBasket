@@ -1,5 +1,7 @@
 from flask import Flask, request, jsonify
 import bcrypt
+import jwt
+import datetime
 from db import get_db_connection
 app = Flask(__name__)
 from config import SECRET_KEY
@@ -38,7 +40,21 @@ def register():
     
 @app.route('/login', methods=['POST'])
 def login():
-    pass
+    data = request.get_json()
+    username = data.get('username')
+    password = data.get('password')
+
+    conn = get_db_connection()
+    cur = conn.cursor()
+    cur.execute("SELECT * FROM users WHERE username = %s", (username,))
+    user = cur.fetchone()
+    cur.close()
+    conn.close()
+
+    if user and bcrypt.checkpw(password.encode('utf-8'), user[2].encode('utf-8')):
+        return jsonify({'message': 'Login successful'})
+    else:
+        return jsonify({'message': 'Invalid credentials'}), 401
 
 if __name__ == "__main__":
     app.run(debug=True)
