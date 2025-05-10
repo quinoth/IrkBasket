@@ -17,26 +17,28 @@ def register():
 
     if not all([username, password, email, role]):
         return jsonify({'message': 'Missing fields'}), 400
+
+    try:
+        password_hash = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
         
-    conn = get_db_connection()
-    cur = conn.cursor()
-    cur.execute("SELECT * FROM users WHERE username = %s OR email = %s", (username, email))
-    existing_user = cur.fetchone()
-    if existing_user:
-        cur.close()
-        conn.close()
-        return jsonify({'message': 'Username or email already exists'}), 400
+        conn = get_db_connection()
+        cur = conn.cursor()
         
-    password_hash = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt())
-    
-    cur.execute(
-        "INSERT INTO users (username, password_hash, email, role) VALUES (%s, %s, %s, %s)",
-        (username, password_hash, email, role)
-    )
-    conn.commit()
-    cur.close()
-    conn.close()
-    return jsonify({'message': 'User registered successfully'}), 201
+        cur.execute(
+            "INSERT INTO users (username, password_hash, email, role) VALUES (%s, %s, %s, %s)",
+            (username, password_hash, email, role)
+        )
+        
+        conn.commit()
+        return jsonify({'message': 'User registered successfully'}), 201
+        
+    except Exception as e:
+        conn.rollback()
+        return jsonify({'message': str(e)}), 500
+        
+    finally:
+        if 'cur' in locals(): cur.close()
+        if 'conn' in locals(): conn.close()
     
 @app.route('/login', methods=['POST'])
 def login():
@@ -64,7 +66,16 @@ def login():
         
 @app.route('/user', methods=['GET'])
 def get_user():
-    pass
+    token = request.headers.get('Authorization')
+    if not token:
+        return jsonify({'message': 'Missing token'}), 401
+
+    try:
+        data = jwt.decode(token, app.config['SECRET_KEY'], algorithms=['HS256'])
+    except jwt.ExpiredSignatureError:
+        return jsonify({'message': 'Token expired'}), 401
+    except jwt.InvalidTokenError:
+        return jsonify({'message': 'Invalid token'}), 401
 
 if __name__ == "__main__":
     app.run(debug=True)
