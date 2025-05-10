@@ -52,7 +52,12 @@ def login():
     conn.close()
 
     if user and bcrypt.checkpw(password.encode('utf-8'), user[2].encode('utf-8')):
-        return jsonify({'message': 'Login successful'})
+        token = jwt.encode({
+            'id': user[0],
+            'role': user[4],
+            'exp': datetime.datetime.utcnow() + datetime.timedelta(hours=1)
+        }, app.config['SECRET_KEY'])
+        return jsonify({'token': token})
     else:
         return jsonify({'message': 'Invalid credentials'}), 401
 
