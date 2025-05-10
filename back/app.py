@@ -26,6 +26,15 @@ def register():
         return jsonify({'message': 'Username or email already exists'}), 400
         
     password_hash = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt())
+    
+    cur.execute(
+        "INSERT INTO users (username, password_hash, email, role) VALUES (%s, %s, %s, %s)",
+        (username, password_hash, email, role)
+    )
+    conn.commit()
+    cur.close()
+    conn.close()
+    return jsonify({'message': 'User registered successfully'}), 201
 
 if __name__ == "__main__":
     app.run(debug=True)
