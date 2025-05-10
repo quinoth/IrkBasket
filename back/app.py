@@ -96,6 +96,11 @@ def get_user():
         return jsonify({'message': 'Token has expired'}), 401
     except jwt.InvalidTokenError as e:
         return jsonify({'message': f'Invalid token: {str(e)}'}), 401
+        
+        
+@app.route('/user/update', methods=['PUT'])
+def update_user():
+    pass
 
 if __name__ == "__main__":
     app.run(debug=True)
