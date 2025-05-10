@@ -35,6 +35,10 @@ def register():
     cur.close()
     conn.close()
     return jsonify({'message': 'User registered successfully'}), 201
+    
+@app.route('/login', methods=['POST'])
+def login():
+    pass
 
 if __name__ == "__main__":
     app.run(debug=True)
