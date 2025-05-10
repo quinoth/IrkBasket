@@ -58,24 +58,27 @@ def login():
             'id': user[0],
             'role': user[4],
             'exp': datetime.datetime.utcnow() + datetime.timedelta(hours=1)
-        }, app.config['SECRET_KEY'])
+        }, app.config['SECRET_KEY'], algorithm='HS256').decode('utf-8')
+        
         return jsonify({'token': token})
     else:
         return jsonify({'message': 'Invalid credentials'}), 401
-        
-        
+
 @app.route('/user', methods=['GET'])
 def get_user():
-    token = request.headers.get('Authorization')
-    if not token:
-        return jsonify({'message': 'Missing token'}), 401
-
+    auth_header = request.headers.get('Authorization')
+    if not auth_header or not auth_header.startswith('Bearer '):
+        return jsonify({'message': 'Missing or invalid Authorization header'}), 401
+    
+    token = auth_header.split()[1] 
+    
     try:
         data = jwt.decode(token, app.config['SECRET_KEY'], algorithms=['HS256'])
+        return jsonify({'user_id': data['id'], 'role': data['role']}), 200
     except jwt.ExpiredSignatureError:
         return jsonify({'message': 'Token expired'}), 401
-    except jwt.InvalidTokenError:
-        return jsonify({'message': 'Invalid token'}), 401
+    except jwt.InvalidTokenError as e:
+        return jsonify({'message': f'Invalid token: {str(e)}'}), 401
 
 if __name__ == "__main__":
     app.run(debug=True)
