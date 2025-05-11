@@ -1,12 +1,20 @@
 import React, { useContext } from 'react';
 import { AuthContext } from '../context/AuthContext';
+import { useNavigate } from 'react-router-dom';
 
 const Profile = () => {
-    const { user } = useContext(AuthContext);
+    const { user, logout } = useContext(AuthContext);
+    const navigate = useNavigate();
 
     if (!user) {
-        return <div className="text-center mt-10">Пожалуйста, войдите в систему</div>;
+        navigate('/login');
+        return null;
     }
+
+    const handleLogout = () => {
+        logout();
+        navigate('/login');
+    };
 
     return (
         <div className="max-w-md mx-auto mt-10 p-6 bg-white rounded-lg shadow-md">
@@ -15,6 +23,12 @@ const Profile = () => {
             <p><strong>Фамилия:</strong> {user.last_name}</p>
             <p><strong>Email:</strong> {user.email}</p>
             <p><strong>Роль:</strong> {user.role === 'player' ? 'Игрок' : 'Тренер'}</p>
+            <button
+                onClick={handleLogout}
+                className="w-full bg-red-500 text-white p-2 rounded hover:bg-red-600 mt-4"
+            >
+                Выйти
+            </button>
         </div>
     );
 };
