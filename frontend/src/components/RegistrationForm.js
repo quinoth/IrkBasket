@@ -1,4 +1,6 @@
 import React, { useState } from 'react';
+import { toast } from 'react-toastify';
+import { useNavigate } from 'react-router-dom';
 
 const RegistrationForm = () => {
     const [formData, setFormData] = useState({
@@ -8,15 +10,43 @@ const RegistrationForm = () => {
         password: '',
         role: 'player'
     });
+    const navigate = useNavigate();
 
     const handleChange = (e) => {
         setFormData({ ...formData, [e.target.name]: e.target.value });
     };
 
+    const handleSubmit = async (e) => {
+        e.preventDefault();
+        try {
+            const response = await fetch('http://localhost:5000/api/register', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(formData)
+            });
+            const data = await response.json();
+            if (response.ok) {
+                toast.success(data.message);
+                setFormData({
+                    first_name: '',
+                    last_name: '',
+                    email: '',
+                    password: '',
+                    role: 'player'
+                });
+                navigate('/login');
+            } else {
+                toast.error(data.message);
+            }
+        } catch (err) {
+            toast.error('Ошибка регистрации');
+        }
+    };
+
     return (
         <div>
             <h2>Регистрация</h2>
-            <form>
+            <form onSubmit={handleSubmit}>
                 <label>
                     Имя:
                     <input
