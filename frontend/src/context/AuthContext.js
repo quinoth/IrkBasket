@@ -5,22 +5,32 @@ export const AuthContext = createContext();
 export const AuthProvider = ({ children }) => {
     const [user, setUser] = useState(null);
 
+    const login = (userData) => {
+        setUser(userData);
+    };
+
     useEffect(() => {
         const token = localStorage.getItem('token');
         if (token) {
             fetch('http://localhost:5000/user', {
-                headers: { 'Authorization': `Bearer ${token}` }
+                headers: { 
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json'
+                }
             })
-                .then(res => res.json())
+                .then(res => {
+                    if (!res.ok) throw new Error('Unauthorized');
+                    return res.json();
+                })
                 .then(data => {
                     if (data.id) {
                         setUser(data);
                     } else {
-                        localStorage.removeItem('token');
-                        setUser(null);
+                        throw new Error('Invalid user data');
                     }
                 })
-                .catch(() => {
+                .catch((err) => {
+                    console.error('Auth check failed:', err);
                     localStorage.removeItem('token');
                     setUser(null);
                 });
@@ -33,7 +43,7 @@ export const AuthProvider = ({ children }) => {
     };
 
     return (
-        <AuthContext.Provider value={{ user, setUser, logout }}>
+        <AuthContext.Provider value={{ user, login, logout }}>
             {children}
         </AuthContext.Provider>
     );
