@@ -45,20 +45,20 @@ def register():
 @app.route('/login', methods=['POST'])
 def login():
     data = request.get_json()
-    username = data.get('username')
+    email = data.get('email')
     password = data.get('password')
 
     conn = get_db_connection()
     cur = conn.cursor()
-    cur.execute("SELECT * FROM users WHERE username = %s", (username,))
+    cur.execute("SELECT * FROM users WHERE email = %s", (email,))
     user = cur.fetchone()
     cur.close()
     conn.close()
 
-    if user and bcrypt.checkpw(password.encode('utf-8'), user[2].encode('utf-8')):
+    if user and bcrypt.checkpw(password.encode('utf-8'), user[4].encode('utf-8')):
         token = jwt.encode({
             'id': user[0],
-            'role': user[4],
+            'role': user[5],
             'exp': datetime.datetime.utcnow() + datetime.timedelta(hours=1)
         }, app.config['SECRET_KEY'], algorithm='HS256')
         
