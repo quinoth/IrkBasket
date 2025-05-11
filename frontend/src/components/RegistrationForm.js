@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
-import { toast } from 'react-toastify';
+import { toast, ToastContainer } from 'react-toastify';
 import { useNavigate } from 'react-router-dom';
+import 'react-toastify/dist/ReactToastify.css';
 
 const RegistrationForm = () => {
     const [formData, setFormData] = useState({
@@ -44,58 +45,74 @@ const RegistrationForm = () => {
     };
 
     return (
-        <div>
-            <h2>Регистрация</h2>
-            <form onSubmit={handleSubmit}>
-                <label>
-                    Имя:
+        <div className="max-w-md mx-auto mt-10 p-6 bg-white rounded-lg shadow-md">
+            <h2 className="text-2xl font-bold text-center mb-6">Регистрация</h2>
+            <form onSubmit={handleSubmit} className="space-y-4">
+                <div>
+                    <label htmlFor="first_name" className="block text-sm font-medium text-gray-700">Имя</label>
                     <input
                         type="text"
+                        id="first_name"
                         name="first_name"
                         value={formData.first_name}
                         onChange={handleChange}
+                        className="mt-1 block w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
                     />
-                </label>
-                <label>
-                    Фамилия:
+                </div>
+                <div>
+                    <label htmlFor="last_name" className="block text-sm font-medium text-gray-700">Фамилия</label>
                     <input
                         type="text"
+                        id="last_name"
                         name="last_name"
                         value={formData.last_name}
                         onChange={handleChange}
+                        className="mt-1 block w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
                     />
-                </label>
-                <label>
-                    Email:
+                </div>
+                <div>
+                    <label htmlFor="email" className="block text-sm font-medium text-gray-700">Email</label>
                     <input
                         type="email"
+                        id="email"
                         name="email"
                         value={formData.email}
                         onChange={handleChange}
+                        className="mt-1 block w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
                     />
-                </label>
-                <label>
-                    Пароль:
+                </div>
+                <div>
+                    <label htmlFor="password" className="block text-sm font-medium text-gray-700">Пароль</label>
                     <input
                         type="password"
+                        id="password"
                         name="password"
                         value={formData.password}
                         onChange={handleChange}
+                        className="mt-1 block w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
                     />
-                </label>
-                <label>
-                    Роль:
+                </div>
+                <div>
+                    <label htmlFor="role" className="block text-sm font-medium text-gray-700">Роль</label>
                     <select
+                        id="role"
                         name="role"
                         value={formData.role}
                         onChange={handleChange}
+                        className="mt-1 block w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
                     >
                         <option value="player">Игрок</option>
                         <option value="trainer">Тренер</option>
                     </select>
-                </label>
-                <button type="submit">Зарегистрироваться</button>
+                </div>
+                <button
+                    type="submit"
+                    className="w-full bg-blue-500 text-white p-2 rounded hover:bg-blue-600"
+                >
+                    Зарегистрироваться
+                </button>
             </form>
+            <ToastContainer />
         </div>
     );
 };
