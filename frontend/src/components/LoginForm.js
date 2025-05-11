@@ -1,13 +1,16 @@
-import React, { useState } from 'react';
+import React, { useState, useContext } from 'react'; 
 import { toast } from 'react-toastify';
 import { useNavigate } from 'react-router-dom';
+import { AuthContext } from '../context/AuthContext';
 
 const LoginForm = () => {
     const [formData, setFormData] = useState({
         email: '',
         password: ''
     });
+    const [isLoading, setIsLoading] = useState(false);
     const navigate = useNavigate();
+    const { login } = useContext(AuthContext);
 
     const handleChange = (e) => {
         setFormData({ ...formData, [e.target.name]: e.target.value });
@@ -15,30 +18,45 @@ const LoginForm = () => {
 
     const handleSubmit = async (e) => {
         e.preventDefault();
+        setIsLoading(true);
+        
         if (!formData.email || !formData.password) {
             toast.error('Все поля обязательны');
+            setIsLoading(false);
             return;
         }
+        
         if (!/\S+@\S+\.\S+/.test(formData.email)) {
             toast.error('Некорректный email');
+            setIsLoading(false);
             return;
         }
+
         try {
             const response = await fetch('http://localhost:5000/login', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(formData)
+                headers: { 
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(formData),
             });
+            
             const data = await response.json();
-            if (response.ok) {
-                toast.success('Вход успешен');
-                localStorage.setItem('token', data.token);
-                navigate('/profile');
-            } else {
-                toast.error(data.message);
+            
+            if (!response.ok) {
+                throw new Error(data.message || 'Неверные учетные данные');
             }
+            
+            toast.success('Вход успешен');
+            localStorage.setItem('token', data.token);
+            login(data.user);
+            navigate('/profile');
+            
         } catch (err) {
-            toast.error('Ошибка входа');
+            toast.error(err.message || 'Ошибка входа');
+            console.error('Login error:', err);
+        } finally {
+            setIsLoading(false);
         }
     };
 
@@ -55,6 +73,7 @@ const LoginForm = () => {
                         value={formData.email}
                         onChange={handleChange}
                         className="mt-1 block w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        required
                     />
                 </div>
                 <div>
@@ -66,13 +85,15 @@ const LoginForm = () => {
                         value={formData.password}
                         onChange={handleChange}
                         className="mt-1 block w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        required
                     />
                 </div>
                 <button
                     type="submit"
-                    className="w-full bg-blue-500 text-white p-2 rounded hover:bg-blue-600"
+                    className="w-full bg-blue-500 text-white p-2 rounded hover:bg-blue-600 disabled:bg-blue-300"
+                    disabled={isLoading}
                 >
-                    Войти
+                    {isLoading ? 'Вход...' : 'Войти'}
                 </button>
             </form>
         </div>
