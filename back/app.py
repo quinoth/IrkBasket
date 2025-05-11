@@ -8,6 +8,17 @@ app = Flask(__name__)
 from config import SECRET_KEY
 app.config['SECRET_KEY'] = SECRET_KEY
 
+def validate_password(password):
+    if len(password) < 8:
+        return False
+    if not re.search(r'[A-Z]', password):
+        return False
+    if not re.search(r'[a-z]', password):
+        return False
+    if not re.search(r'\d', password):
+        return False
+    return True
+
 @app.route('/register', methods=['POST'])
 def register():
     data = request.get_json()
@@ -19,6 +30,9 @@ def register():
 
     if not all([first_name, last_name, email, password, role]):
         return jsonify({'message': 'Missing fields'}), 400
+
+    if not validate_password(password):
+        return jsonify({'message': 'Password must be at least 8 characters long, include uppercase, lowercase, and a number'}), 400
 
     try:
         password_hash = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
