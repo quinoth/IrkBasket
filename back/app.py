@@ -72,7 +72,7 @@ def get_user():
     if not auth_header or not auth_header.startswith('Bearer '):
         return jsonify({'message': 'Authorization header is missing or invalid'}), 401
     
-    token = auth_header.split(' ')[1] 
+    token = auth_header.split(' ')[1]
 
     try:
         data = jwt.decode(token, app.config['SECRET_KEY'], algorithms=['HS256'])
@@ -80,7 +80,7 @@ def get_user():
         
         conn = get_db_connection()
         cur = conn.cursor()
-        cur.execute("SELECT id, username, email, role FROM users WHERE id = %s", (user_id,))
+        cur.execute("SELECT id, first_name, last_name, email, role FROM users WHERE id = %s", (user_id,))
         user = cur.fetchone()
         cur.close()
         conn.close()
@@ -88,9 +88,10 @@ def get_user():
         if user:
             return jsonify({
                 'id': user[0],
-                'username': user[1],
-                'email': user[2],
-                'role': user[3]
+                'first_name': user[1],
+                'last_name': user[2],
+                'email': user[3],
+                'role': user[4]
             })
         return jsonify({'message': 'User not found'}), 404
         
