@@ -1,12 +1,22 @@
 from flask import Flask, request, jsonify
+from flask_cors import CORS
 import re
 import bcrypt
 import jwt
 import datetime
 from db import get_db_connection
-app = Flask(__name__)
 from config import SECRET_KEY
+
+app = Flask(__name__)
 app.config['SECRET_KEY'] = SECRET_KEY
+
+CORS(app, resources={
+    r"/*": {
+        "origins": "http://localhost:3000",
+        "methods": ["GET", "POST", "PUT", "OPTIONS"],
+        "allow_headers": ["Content-Type", "Authorization"]
+    }
+})
 
 def validate_password(password):
     if len(password) < 8:
@@ -55,7 +65,7 @@ def register():
     finally:
         if 'cur' in locals(): cur.close()
         if 'conn' in locals(): conn.close()
-    
+
 @app.route('/login', methods=['POST'])
 def login():
     data = request.get_json()
@@ -69,15 +79,13 @@ def login():
     cur.close()
     conn.close()
 
-    print("User tuple:", user)
-
-    if user and bcrypt.checkpw(password.encode('utf-8'), user[2].encode('utf-8')):  # user[2] is password_hash
+    if user and bcrypt.checkpw(password.encode('utf-8'), user[2].encode('utf-8')):
         token = jwt.encode({
             'id': user[0],
-            'role': user[3],  # user[3] is role
+            'role': user[3], 
             'exp': datetime.datetime.utcnow() + datetime.timedelta(hours=1)
         }, app.config['SECRET_KEY'], algorithm='HS256')
-        return jsonify({'token': token})
+        return jsonify({'token': token, 'message': 'Login successful'})
     else:
         return jsonify({'message': 'Invalid credentials'}), 401
 
@@ -114,8 +122,7 @@ def get_user():
         return jsonify({'message': 'Token has expired'}), 401
     except jwt.InvalidTokenError as e:
         return jsonify({'message': f'Invalid token: {str(e)}'}), 401
-        
-        
+
 @app.route('/user/update', methods=['PUT'])
 def update_user():
     auth_header = request.headers.get('Authorization')
@@ -174,5 +181,5 @@ def update_user():
         if 'cur' in locals(): cur.close()
         if 'conn' in locals(): conn.close()
 
-if __name__ == "__main__":
-    app.run(debug=True)
+if __name__ == '__main__':
+    app.run(debug=True, port=5000)
