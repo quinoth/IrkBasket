@@ -64,18 +64,19 @@ def login():
 
     conn = get_db_connection()
     cur = conn.cursor()
-    cur.execute("SELECT * FROM users WHERE email = %s", (email,))
+    cur.execute("SELECT id, email, password_hash, role FROM users WHERE email = %s", (email,))
     user = cur.fetchone()
     cur.close()
     conn.close()
 
-    if user and bcrypt.checkpw(password.encode('utf-8'), user[4].encode('utf-8')):
+    print("User tuple:", user)
+
+    if user and bcrypt.checkpw(password.encode('utf-8'), user[2].encode('utf-8')):  # user[2] is password_hash
         token = jwt.encode({
             'id': user[0],
-            'role': user[5],
+            'role': user[3],  # user[3] is role
             'exp': datetime.datetime.utcnow() + datetime.timedelta(hours=1)
         }, app.config['SECRET_KEY'], algorithm='HS256')
-        
         return jsonify({'token': token})
     else:
         return jsonify({'message': 'Invalid credentials'}), 401
