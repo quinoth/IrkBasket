@@ -15,6 +15,14 @@ const LoginForm = () => {
 
     const handleSubmit = async (e) => {
         e.preventDefault();
+        if (!formData.email || !formData.password) {
+            toast.error('Все поля обязательны');
+            return;
+        }
+        if (!/\S+@\S+\.\S+/.test(formData.email)) {
+            toast.error('Некорректный email');
+            return;
+        }
         try {
             const response = await fetch('http://localhost:5000/login', {
                 method: 'POST',
