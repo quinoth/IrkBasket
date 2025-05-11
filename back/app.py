@@ -11,12 +11,13 @@ app.config['SECRET_KEY'] = SECRET_KEY
 @app.route('/register', methods=['POST'])
 def register():
     data = request.get_json()
-    username = data.get('username')
-    password = data.get('password')
+    first_name = data.get('first_name')
+    last_name = data.get('last_name')
     email = data.get('email')
+    password = data.get('password')
     role = data.get('role')
 
-    if not all([username, password, email, role]):
+    if not all([first_name, last_name, email, password, role]):
         return jsonify({'message': 'Missing fields'}), 400
 
     try:
@@ -26,8 +27,8 @@ def register():
         cur = conn.cursor()
         
         cur.execute(
-            "INSERT INTO users (username, password_hash, email, role) VALUES (%s, %s, %s, %s)",
-            (username, password_hash, email, role)
+            "INSERT INTO users (first_name, last_name, email, password_hash, role) VALUES (%s, %s, %s, %s, %s)",
+            (first_name, last_name, email, password_hash, role)
         )
         
         conn.commit()
