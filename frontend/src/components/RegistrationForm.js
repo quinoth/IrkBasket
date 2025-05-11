@@ -11,23 +11,33 @@ const RegistrationForm = () => {
         password: '',
         role: 'player'
     });
+    const [errors, setErrors] = useState({});
+    const [isLoading, setIsLoading] = useState(false);
     const navigate = useNavigate();
 
     const handleChange = (e) => {
         setFormData({ ...formData, [e.target.name]: e.target.value });
+        if (errors[e.target.name]) {
+            setErrors({ ...errors, [e.target.name]: '' });
+        }
     };
 
     const handleSubmit = async (e) => {
         e.preventDefault();
+        setIsLoading(true);
+        setErrors({});
+        
         try {
-            const response = await fetch('http://localhost:5000/api/register', {
+            const response = await fetch('http://localhost:5000/register', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(formData)
             });
+            
             const data = await response.json();
+            
             if (response.ok) {
-                toast.success(data.message);
+                toast.success('Вы успешно зарегистрировались!');
                 setFormData({
                     first_name: '',
                     last_name: '',
@@ -37,10 +47,18 @@ const RegistrationForm = () => {
                 });
                 navigate('/login');
             } else {
-                toast.error(data.message);
+                if (data.message.includes('email') || data.message.includes('Email')) {
+                    setErrors({ ...errors, email: 'Этот email уже занят' });
+                    toast.error('Этот email уже занят');
+                } else {
+                    toast.error(data.message || 'Ошибка регистрации');
+                }
             }
         } catch (err) {
-            toast.error('Ошибка регистрации');
+            toast.error('Ошибка соединения с сервером');
+            console.error('Fetch error:', err);
+        } finally {
+            setIsLoading(false);
         }
     };
 
@@ -57,6 +75,7 @@ const RegistrationForm = () => {
                         value={formData.first_name}
                         onChange={handleChange}
                         className="mt-1 block w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        required
                     />
                 </div>
                 <div>
@@ -68,6 +87,7 @@ const RegistrationForm = () => {
                         value={formData.last_name}
                         onChange={handleChange}
                         className="mt-1 block w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        required
                     />
                 </div>
                 <div>
@@ -78,8 +98,14 @@ const RegistrationForm = () => {
                         name="email"
                         value={formData.email}
                         onChange={handleChange}
-                        className="mt-1 block w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        className={`mt-1 block w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                            errors.email ? 'border-red-500' : ''
+                        }`}
+                        required
                     />
+                    {errors.email && (
+                        <p className="mt-1 text-sm text-red-600">{errors.email}</p>
+                    )}
                 </div>
                 <div>
                     <label htmlFor="password" className="block text-sm font-medium text-gray-700">Пароль</label>
@@ -90,6 +116,7 @@ const RegistrationForm = () => {
                         value={formData.password}
                         onChange={handleChange}
                         className="mt-1 block w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        required
                     />
                 </div>
                 <div>
@@ -107,9 +134,12 @@ const RegistrationForm = () => {
                 </div>
                 <button
                     type="submit"
-                    className="w-full bg-blue-500 text-white p-2 rounded hover:bg-blue-600"
+                    disabled={isLoading}
+                    className={`w-full bg-blue-500 text-white p-2 rounded hover:bg-blue-600 ${
+                        isLoading ? 'opacity-50 cursor-not-allowed' : ''
+                    }`}
                 >
-                    Зарегистрироваться
+                    {isLoading ? 'Регистрация...' : 'Зарегистрироваться'}
                 </button>
             </form>
             <ToastContainer />
