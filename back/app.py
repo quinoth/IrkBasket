@@ -205,6 +205,42 @@ def update_user():
     finally:
         if 'cur' in locals(): cur.close()
         if 'conn' in locals(): conn.close()
+        
+        
+        
+@app.route('/teams', methods=['GET'])
+@token_required
+def get_teams(user_id):
+    user_data = get_user_data(user_id)
+    if not user_data or user_data['role'] != 'trainer':
+        return jsonify({"message": "Unauthorized"}), 403
+    conn = get_db_connection()
+    cur = conn.cursor()
+    cur.execute("SELECT id, name, description FROM teams")
+    teams = cur.fetchall()
+    cur.close()
+    conn.close()
+    return jsonify([{"id": t[0], "name": t[1], "description": t[2]} for t in teams])
+
+@app.route('/teams', methods=['POST'])
+@token_required
+def create_team(user_id):
+    user_data = get_user_data(user_id)
+    if not user_data or user_data['role'] != 'trainer':
+        return jsonify({"message": "Unauthorized"}), 403
+    data = request.get_json()
+    name = data.get('name')
+    description = data.get('description')
+    if not name:
+        return jsonify({"message": "Name is required"}), 400
+    conn = get_db_connection()
+    cur = conn.cursor()
+    cur.execute("INSERT INTO teams (name, description) VALUES (%s, %s) RETURNING id", (name, description))
+    team_id = cur.fetchone()[0]
+    conn.commit()
+    cur.close()
+    conn.close()
+    return jsonify({"message": "Team created", "id": team_id}), 201
 
 if __name__ == '__main__':
     app.run(debug=True, port=5000)
