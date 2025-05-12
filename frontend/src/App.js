@@ -1,17 +1,18 @@
-import { BrowserRouter as Router, Route, Routes, Navigate } from 'react-router-dom';
-import { useContext } from 'react';
+import React from 'react';
+import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import { AuthProvider } from './AuthContext';
+import Navbar from './components/Navbar';
 import RegistrationForm from './components/RegistrationForm';
 import LoginForm from './components/LoginForm';
 import Profile from './components/Profile';
-import Navbar from './components/Navbar';
-import { AuthProvider, AuthContext } from './context/AuthContext';
+import TeamsManagement from './components/TeamsManagement';
+import SchedulesManagement from './components/SchedulesManagement';
+import AttendanceRecording from './components/AttendanceRecording';
+import SchedulesView from './components/SchedulesView';
+import AttendanceView from './components/AttendanceView';
+import ProtectedRoute from './ProtectedRoute';
 
-const ProtectedRoute = ({ children }) => {
-    const { user } = useContext(AuthContext);
-    return user ? children : <Navigate to="/login" replace />;
-};
-
-function App() {
+const App = () => {
     return (
         <AuthProvider>
             <Router>
@@ -19,19 +20,29 @@ function App() {
                 <Routes>
                     <Route path="/register" element={<RegistrationForm />} />
                     <Route path="/login" element={<LoginForm />} />
-                    <Route 
-                        path="/profile" 
-                        element={
-                            <ProtectedRoute>
-                                <Profile />
-                            </ProtectedRoute>
-                        } 
-                    />
-                    <Route path="/" element={<div className="text-center mt-10">Главная страница</div>} />
+                    <Route path="/profile" element={<Profile />} />
+                    <Route path="/teams" element={
+                        <ProtectedRoute allowedRoles={['trainer']}>
+                            <TeamsManagement />
+                        </ProtectedRoute>
+                    } />
+                    <Route path="/schedules-management" element={
+                        <ProtectedRoute allowedRoles={['trainer']}>
+                            <SchedulesManagement />
+                        </ProtectedRoute>
+                    } />
+                    <Route path="/attendance-recording" element={
+                        <ProtectedRoute allowedRoles={['trainer']}>
+                            <AttendanceRecording />
+                        </ProtectedRoute>
+                    } />
+                    <Route path="/schedules" element={<SchedulesView />} />
+                    <Route path="/my-attendance" element={<AttendanceView />} />
+                    <Route path="/" element={<div>Главная страница</div>} />
                 </Routes>
             </Router>
         </AuthProvider>
     );
-}
+};
 
 export default App;
