@@ -1,7 +1,6 @@
-import React, { useState } from 'react';
-import { toast, ToastContainer } from 'react-toastify';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import 'react-toastify/dist/ReactToastify.css';
+import { toast } from 'react-toastify';
 
 const RegistrationForm = () => {
     const [formData, setFormData] = useState({
@@ -9,140 +8,191 @@ const RegistrationForm = () => {
         last_name: '',
         email: '',
         password: '',
-        role: 'player'
+        confirmPassword: '',
+        role: 'player',
+        team_id: ''
     });
-    const [errors, setErrors] = useState({});
-    const [isLoading, setIsLoading] = useState(false);
+    const [teams, setTeams] = useState([]);
     const navigate = useNavigate();
+
+    useEffect(() => {
+        fetch('/public/teams')
+            .then(res => res.json())
+            .then(data => setTeams(data))
+            .catch(err => console.error(err));
+    }, []);
 
     const handleChange = (e) => {
         setFormData({ ...formData, [e.target.name]: e.target.value });
-        if (errors[e.target.name]) {
-            setErrors({ ...errors, [e.target.name]: '' });
-        }
+    };
+
+    const validateEmail = (email) => {
+        const re = /\S+@\S+\.\S+/;
+        return re.test(email);
+    };
+
+    const validatePassword = (password) => {
+        if (password.length < 8) return false;
+        if (!/[A-Z]/.test(password)) return false;
+        if (!/[a-z]/.test(password)) return false;
+        if (!/[0-9]/.test(password)) return false;
+        return true;
     };
 
     const handleSubmit = async (e) => {
         e.preventDefault();
-        setIsLoading(true);
-        setErrors({});
-        
+        if (!validateEmail(formData.email)) {
+            toast.error('Некорректный email');
+            return;
+        }
+        if (!validatePassword(formData.password)) {
+            toast.error('Пароль должен содержать хотя бы 8 символов, включая заглавные и строчные буквы и цифры');
+            return;
+        }
+        if (formData.password !== formData.confirmPassword) {
+            toast.error('Пароли не совпадают');
+            return;
+        }
+        if (formData.role === 'player' && !formData.team_id) {
+            toast.error('Выберите команду');
+            return;
+        }
+        const registerData = {
+            first_name: formData.first_name,
+            last_name: formData.last_name,
+            email: formData.email,
+            password: formData.password,
+            role: formData.role,
+        };
+        if (formData.role === 'player') {
+            registerData.team_id = formData.team_id;
+        }
         try {
-            const response = await fetch('http://localhost:5000/register', {
+            const response = await fetch('/register', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(formData)
+                body: JSON.stringify(registerData)
             });
-            
             const data = await response.json();
-            
             if (response.ok) {
-                toast.success('Вы успешно зарегистрировались!');
+                toast.success(data.message);
                 setFormData({
                     first_name: '',
                     last_name: '',
                     email: '',
                     password: '',
-                    role: 'player'
+                    confirmPassword: '',
+                    role: 'player',
+                    team_id: ''
                 });
                 navigate('/login');
             } else {
-                if (data.message.includes('email') || data.message.includes('Email')) {
-                    setErrors({ ...errors, email: 'Этот email уже занят' });
-                    toast.error('Этот email уже занят');
-                } else {
-                    toast.error(data.message || 'Ошибка регистрации');
-                }
+                toast.error(data.message);
             }
-        } catch (err) {
-            toast.error('Ошибка соединения с сервером');
-            console.error('Fetch error:', err);
-        } finally {
-            setIsLoading(false);
+        } catch (error) {
+            toast.error('Ошибка регистрации');
         }
     };
 
     return (
-        <div className="max-w-md mx-auto mt-10 p-6 bg-white rounded-lg shadow-md">
-            <h2 className="text-2xl font-bold text-center mb-6">Регистрация</h2>
-            <form onSubmit={handleSubmit} className="space-y-4">
-                <div>
-                    <label htmlFor="first_name" className="block text-sm font-medium text-gray-700">Имя</label>
+        <div className="max-w-md mx-auto mt-10 p-6 bg-white rounded shadow-md">
+            <h2 className="text-2xl font-bold mb-6 text-center">Регистрация</h2>
+            <form onSubmit={handleSubmit}>
+                <div className="mb-4">
+                    <label htmlFor="first_name" className="block text-gray-700 font-bold mb-2">Имя</label>
                     <input
                         type="text"
                         id="first_name"
                         name="first_name"
                         value={formData.first_name}
                         onChange={handleChange}
-                        className="mt-1 block w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:border-blue-500"
                         required
                     />
                 </div>
-                <div>
-                    <label htmlFor="last_name" className="block text-sm font-medium text-gray-700">Фамилия</label>
+                <div className="mb-4">
+                    <label htmlFor="last_name" className="block text-gray-700 font-bold mb-2">Фамилия</label>
                     <input
                         type="text"
                         id="last_name"
                         name="last_name"
                         value={formData.last_name}
                         onChange={handleChange}
-                        className="mt-1 block w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:border-blue-500"
                         required
                     />
                 </div>
-                <div>
-                    <label htmlFor="email" className="block text-sm font-medium text-gray-700">Email</label>
+                <div className="mb-4">
+                    <label htmlFor="email" className="block text-gray-700 font-bold mb-2">Email</label>
                     <input
                         type="email"
                         id="email"
                         name="email"
                         value={formData.email}
                         onChange={handleChange}
-                        className={`mt-1 block w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                            errors.email ? 'border-red-500' : ''
-                        }`}
+                        className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:border-blue-500"
                         required
                     />
-                    {errors.email && (
-                        <p className="mt-1 text-sm text-red-600">{errors.email}</p>
-                    )}
                 </div>
-                <div>
-                    <label htmlFor="password" className="block text-sm font-medium text-gray-700">Пароль</label>
+                <div className="mb-4">
+                    <label htmlFor="password" className="block text-gray-700 font-bold mb-2">Пароль</label>
                     <input
                         type="password"
                         id="password"
                         name="password"
                         value={formData.password}
                         onChange={handleChange}
-                        className="mt-1 block w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:border-blue-500"
                         required
                     />
                 </div>
-                <div>
-                    <label htmlFor="role" className="block text-sm font-medium text-gray-700">Роль</label>
+                <div className="mb-4">
+                    <label htmlFor="confirmPassword" className="block text-gray-700 font-bold mb-2">Подтвердить пароль</label>
+                    <input
+                        type="password"
+                        id="confirmPassword"
+                        name="confirmPassword"
+                        value={formData.confirmPassword}
+                        onChange={handleChange}
+                        className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:border-blue-500"
+                        required
+                    />
+                </div>
+                <div className="mb-4">
+                    <label htmlFor="role" className="block text-gray-700 font-bold mb-2">Роль</label>
                     <select
                         id="role"
                         name="role"
                         value={formData.role}
                         onChange={handleChange}
-                        className="mt-1 block w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:border-blue-500"
                     >
                         <option value="player">Игрок</option>
                         <option value="trainer">Тренер</option>
                     </select>
                 </div>
-                <button
-                    type="submit"
-                    disabled={isLoading}
-                    className={`w-full bg-blue-500 text-white p-2 rounded hover:bg-blue-600 ${
-                        isLoading ? 'opacity-50 cursor-not-allowed' : ''
-                    }`}
-                >
-                    {isLoading ? 'Регистрация...' : 'Зарегистрироваться'}
+                {formData.role === 'player' && (
+                    <div className="mb-4">
+                        <label htmlFor="team_id" className="block text-gray-700 font-bold mb-2">Команда</label>
+                        <select
+                            id="team_id"
+                            name="team_id"
+                            value={formData.team_id}
+                            onChange={handleChange}
+                            className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:border-blue-500"
+                            required
+                        >
+                            <option value="">Выберите команду</option>
+                            {teams.map(team => (
+                                <option key={team.id} value={team.id}>{team.name}</option>
+                            ))}
+                        </select>
+                    </div>
+                )}
+                <button type="submit" className="w-full bg-blue-500 text-white font-bold py-2 px-4 rounded hover:bg-blue-600 focus:outline-none focus:shadow-outline">
+                    Зарегистрироваться
                 </button>
             </form>
-            <ToastContainer />
         </div>
     );
 };
