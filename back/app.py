@@ -150,9 +150,9 @@ def login():
 
     if user and bcrypt.checkpw(password.encode('utf-8'), user[4].encode('utf-8')):
         token = jwt.encode({
-            'id': user[0],
+            'user_id': user[0],  # Изменено с 'id' на 'user_id' для соответствия @token_required
             'role': user[5], 
-            'exp': datetime.datetime.utcnow() + datetime.timedelta(hours=1)
+            'exp': datetime.utcnow() + timedelta(hours=1)
         }, app.config['SECRET_KEY'], algorithm='HS256')
         
         return jsonify({
@@ -169,100 +169,45 @@ def login():
     else:
         return jsonify({'message': 'Invalid credentials'}), 401
 
-@app.route('/user', methods=['GET'])
-def get_user():
-    auth_header = request.headers.get('Authorization')
-    if not auth_header or not auth_header.startswith('Bearer '):
-        return jsonify({'message': 'Authorization header is missing or invalid'}), 401
+@app.route('/user/update', methods=['PUT'])
+@token_required
+def update_user(user_id):
+    data = request.get_json()
+    if not data or 'email' not in data:
+        return jsonify({'message': 'Email is required'}), 400
     
-    token = auth_header.split(' ')[1]
-
+    email = data['email'].strip()
+    
+    if not re.match(r'^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$', email):
+        return jsonify({'message': 'Invalid email format'}), 400
+    
+    conn = get_db_connection()
+    cur = conn.cursor()
+    
     try:
-        data = jwt.decode(token, app.config['SECRET_KEY'], algorithms=['HS256'])
-        user_id = data['id']
+        cur.execute("SELECT id FROM users WHERE email = %s AND id != %s", (email, user_id))
+        if cur.fetchone():
+            return jsonify({'message': 'Email already in use by another user'}), 400
         
-        conn = get_db_connection()
-        cur = conn.cursor()
-        cur.execute("SELECT id, first_name, last_name, email, role FROM users WHERE id = %s", (user_id,))
-        user = cur.fetchone()
+        cur.execute("UPDATE users SET email = %s WHERE id = %s RETURNING id", (email, user_id))
+        updated_user = cur.fetchone()
+        conn.commit()
+        
+        if not updated_user:
+            return jsonify({'message': 'User not found'}), 404
+            
+        return jsonify({
+            'message': 'Profile updated successfully',
+            'email': email
+        })
+        
+    except Exception as e:
+        conn.rollback()
+        return jsonify({'message': f'Database error: {str(e)}'}), 500
+    finally:
         cur.close()
         conn.close()
-        
-        if user:
-            return jsonify({
-                'id': user[0],
-                'first_name': user[1],
-                'last_name': user[2],
-                'email': user[3],
-                'role': user[4]
-            })
-        return jsonify({'message': 'User not found'}), 404
-        
-    except jwt.ExpiredSignatureError:
-        return jsonify({'message': 'Token has expired'}), 401
-    except jwt.InvalidTokenError as e:
-        return jsonify({'message': f'Invalid token: {str(e)}'}), 401
 
-@app.route('/user/update', methods=['PUT'])
-def update_user():
-    auth_header = request.headers.get('Authorization')
-    if not auth_header or not auth_header.startswith('Bearer '):
-        return jsonify({'message': 'Authorization header is missing or invalid'}), 401
-    
-    token = auth_header.split(' ')[1].strip()
-
-    try:
-        data = jwt.decode(token, app.config['SECRET_KEY'], algorithms=['HS256'])
-        user_id = data['id']
-        
-        update_data = request.get_json()
-        if not update_data:
-            return jsonify({'message': 'No data provided'}), 400
-            
-        if 'email' not in update_data:
-            return jsonify({'message': 'Email is required'}), 400
-            
-        email = update_data['email'].strip()
-        
-        if not re.match(r'^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$', email):
-            return jsonify({'message': 'Invalid email format'}), 400
-            
-        conn = get_db_connection()
-        cur = conn.cursor()
-        
-        try:
-            cur.execute("SELECT id FROM users WHERE email = %s AND id != %s", (email, user_id))
-            if cur.fetchone():
-                return jsonify({'message': 'Email already in use by another user'}), 400
-            
-            cur.execute("UPDATE users SET email = %s WHERE id = %s RETURNING id", (email, user_id))
-            updated_user = cur.fetchone()
-            conn.commit()
-            
-            if not updated_user:
-                return jsonify({'message': 'User not found'}), 404
-                
-            return jsonify({
-                'message': 'Profile updated successfully',
-                'email': email
-            })
-            
-        except Exception as e:
-            conn.rollback()
-            return jsonify({'message': f'Database error: {str(e)}'}), 500
-            
-    except jwt.ExpiredSignatureError:
-        return jsonify({'message': 'Token expired'}), 401
-    except jwt.InvalidTokenError as e:
-        return jsonify({'message': f'Invalid token: {str(e)}'}), 401
-    except Exception as e:
-        return jsonify({'message': f'Server error: {str(e)}'}), 500
-    finally:
-        if 'cur' in locals(): cur.close()
-        if 'conn' in locals(): conn.close()
-        
-        
-        
 @app.route('/teams', methods=['GET'])
 @token_required
 def get_teams(user_id):
@@ -296,8 +241,7 @@ def create_team(user_id):
     cur.close()
     conn.close()
     return jsonify({"message": "Team created", "id": team_id}), 201
-    
-    
+
 @app.route('/schedules', methods=['GET'])
 @token_required
 def get_schedules(user_id):
@@ -343,8 +287,7 @@ def create_schedule(user_id):
     cur.close()
     conn.close()
     return jsonify({"message": "Schedule created", "id": schedule_id}), 201
-    
-    
+
 @app.route('/schedules/<int:schedule_id>/attendance', methods=['POST'])
 @token_required
 def record_attendance(user_id, schedule_id):
