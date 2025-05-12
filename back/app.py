@@ -29,6 +29,19 @@ def validate_password(password):
     if not re.search(r'\d', password):
         return False
     return True
+    
+
+def get_user_data(user_id):
+    conn = get_db_connection()
+    cur = conn.cursor()
+    cur.execute("SELECT role, team_id FROM users WHERE id = %s", (user_id,))
+    data = cur.fetchone()
+    cur.close()
+    conn.close()
+    if data:
+        return {"role": data[0], "team_id": data[1]}
+    return None    
+
 
 @app.route('/register', methods=['POST'])
 def register():
