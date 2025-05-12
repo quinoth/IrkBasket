@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../AuthContext';
+import { toast } from 'react-toastify';
+import { API_BASE_URL } from '../config';
 
 const TeamsManagement = () => {
     const { auth } = useAuth();
@@ -8,19 +10,25 @@ const TeamsManagement = () => {
 
     useEffect(() => {
         if (auth.user && auth.user.role === 'trainer') {
-            fetch('/teams', {
+            fetch(`${API_BASE_URL}/teams`, {
                 headers: { 'Authorization': `Bearer ${auth.token}` }
             })
-                .then(res => res.json())
+                .then(res => {
+                    if (!res.ok) throw new Error('Failed to fetch teams');
+                    return res.json();
+                })
                 .then(data => setTeams(data))
-                .catch(err => console.error(err));
+                .catch(err => {
+                    console.error(err);
+                    toast.error('Ошибка загрузки команд');
+                });
         }
     }, [auth]);
 
     const handleSubmit = async (e) => {
         e.preventDefault();
         try {
-            const response = await fetch('/teams', {
+            const response = await fetch(`${API_BASE_URL}/teams`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -28,13 +36,14 @@ const TeamsManagement = () => {
                 },
                 body: JSON.stringify(formData)
             });
-            if (response.ok) {
-                const data = await response.json();
-                setTeams([...teams, { id: data.id, ...formData }]);
-                setFormData({ name: '', description: '' });
-            }
+            if (!response.ok) throw new Error('Failed to create team');
+            const data = await response.json();
+            setTeams([...teams, { id: data.id, ...formData }]);
+            setFormData({ name: '', description: '' });
+            toast.success('Команда добавлена');
         } catch (error) {
             console.error(error);
+            toast.error('Ошибка добавления команды');
         }
     };
 

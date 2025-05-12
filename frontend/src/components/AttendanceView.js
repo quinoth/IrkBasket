@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../AuthContext';
+import { toast } from 'react-toastify';
+import { API_BASE_URL } from '../config';
 
 const AttendanceView = () => {
     const { auth } = useAuth();
@@ -7,12 +9,18 @@ const AttendanceView = () => {
 
     useEffect(() => {
         if (auth.user) {
-            fetch('http://localhost:5000/attendance', {
+            fetch(`${API_BASE_URL}/attendance`, {
                 headers: { 'Authorization': `Bearer ${auth.token}` }
             })
-                .then(res => res.json())
+                .then(res => {
+                    if (!res.ok) throw new Error('Failed to fetch attendance');
+                    return res.json();
+                })
                 .then(data => setAttendance(data))
-                .catch(err => console.error(err));
+                .catch(err => {
+                    console.error(err);
+                    toast.error('Ошибка загрузки посещаемости');
+                });
         }
     }, [auth]);
 

@@ -1,99 +1,62 @@
-import React, { useState, useContext } from 'react'; 
-import { toast } from 'react-toastify';
+import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { AuthContext } from '../AuthContext';
+import { toast } from 'react-toastify';
+import { useAuth } from '../AuthContext';
 
 const LoginForm = () => {
-    const [formData, setFormData] = useState({
+    const [loginData, setLoginData] = useState({
         email: '',
         password: ''
     });
-    const [isLoading, setIsLoading] = useState(false);
+    const { login } = useAuth();
     const navigate = useNavigate();
-    const { login } = useContext(AuthContext);
-
-    const handleChange = (e) => {
-        setFormData({ ...formData, [e.target.name]: e.target.value });
-    };
 
     const handleSubmit = async (e) => {
         e.preventDefault();
-        setIsLoading(true);
-        
-        if (!formData.email || !formData.password) {
-            toast.error('Все поля обязательны');
-            setIsLoading(false);
-            return;
-        }
-        
-        if (!/\S+@\S+\.\S+/.test(formData.email)) {
-            toast.error('Некорректный email');
-            setIsLoading(false);
-            return;
-        }
-
+        console.log('Login data:', loginData);
         try {
-            const response = await fetch('http://localhost:5000/login', {
-                method: 'POST',
-                headers: { 
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify(formData),
-            });
-            
-            const data = await response.json();
-            
-            if (!response.ok) {
-                throw new Error(data.message || 'Неверные учетные данные');
-            }
-            
-            toast.success('Вход успешен');
-            localStorage.setItem('token', data.token);
-            login(data.user);
-            navigate('/profile');
-            
-        } catch (err) {
-            toast.error(err.message || 'Ошибка входа');
-            console.error('Login error:', err);
-        } finally {
-            setIsLoading(false);
+            await login(loginData.email, loginData.password);
+            toast.success('Login successful');
+            navigate('/dashboard');
+        } catch (error) {
+            console.error('Login error:', error);
+            toast.error('Login failed: ' + error.message);
         }
     };
 
+    const handleChange = (e) => {
+        const { name, value } = e.target;
+        setLoginData({ ...loginData, [name]: value });
+    };
+
     return (
-        <div className="max-w-md mx-auto mt-10 p-6 bg-white rounded-lg shadow-md">
-            <h2 className="text-2xl font-bold text-center mb-6">Вход</h2>
-            <form onSubmit={handleSubmit} className="space-y-4">
-                <div>
-                    <label htmlFor="email" className="block text-sm font-medium text-gray-700">Email</label>
+        <div className="container mx-auto p-4">
+            <h2 className="text-2xl font-bold mb-4">Вход</h2>
+            <form onSubmit={handleSubmit} className="max-w-md mx-auto">
+                <div className="mb-4">
+                    <label className="block text-gray-700">Email</label>
                     <input
                         type="email"
-                        id="email"
                         name="email"
-                        value={formData.email}
+                        value={loginData.email}
                         onChange={handleChange}
-                        className="mt-1 block w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        className="w-full p-2 border rounded"
                         required
                     />
                 </div>
-                <div>
-                    <label htmlFor="password" className="block text-sm font-medium text-gray-700">Пароль</label>
+                <div className="mb-4">
+                    <label className="block text-gray-700">Пароль</label>
                     <input
                         type="password"
-                        id="password"
                         name="password"
-                        value={formData.password}
+                        value={loginData.password}
                         onChange={handleChange}
-                        className="mt-1 block w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        className="w-full p-2 border rounded"
                         required
                     />
                 </div>
-                <button
-                    type="submit"
-                    className="w-full bg-blue-500 text-white p-2 rounded hover:bg-blue-600 disabled:bg-blue-300"
-                    disabled={isLoading}
-                >
-                    {isLoading ? 'Вход...' : 'Войти'}
+                <button type="submit" className="bg-blue-500 text-white p-2 rounded">
+                    Войти
                 </button>
             </form>
         </div>

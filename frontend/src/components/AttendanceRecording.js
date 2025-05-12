@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../AuthContext';
+import { toast } from 'react-toastify';
+import { API_BASE_URL } from '../config';
 
 const AttendanceRecording = () => {
     const { auth } = useAuth();
@@ -10,12 +12,18 @@ const AttendanceRecording = () => {
 
     useEffect(() => {
         if (auth.user && auth.user.role === 'trainer') {
-            fetch('/schedules', {
+            fetch(`${API_BASE_URL}/schedules`, {
                 headers: { 'Authorization': `Bearer ${auth.token}` }
             })
-                .then(res => res.json())
+                .then(res => {
+                    if (!res.ok) throw new Error('Failed to fetch schedules');
+                    return res.json();
+                })
                 .then(data => setSchedules(data))
-                .catch(err => console.error(err));
+                .catch(err => {
+                    console.error(err);
+                    toast.error('Ошибка загрузки расписания');
+                });
         }
     }, [auth]);
 
@@ -25,18 +33,28 @@ const AttendanceRecording = () => {
         if (scheduleId) {
             const schedule = schedules.find(s => s.id === parseInt(scheduleId));
             if (schedule) {
-                const conn = await fetch(`/users?team_id=${schedule.team_id}`, {
-                    headers: { 'Authorization': `Bearer ${auth.token}` }
-                });
-                const data = await conn.json();
-                setPlayers(data);
+                try {
+                    const res = await fetch(`${API_BASE_URL}/users?team_id=${schedule.team_id}`, {
+                        headers: { 'Authorization': `Bearer ${auth.token}` }
+                    });
+                    if (!res.ok) throw new Error('Failed to fetch players');
+                    const data = await res.json();
+                    setPlayers(data);
+                } catch (err) {
+                    console.error(err);
+                    toast.error('Ошибка загрузки игроков');
+                }
             }
         }
     };
 
     const handleSubmit = async () => {
+        if (!selectedSchedule) {
+            toast.error('Выберите событие');
+            return;
+        }
         try {
-            await fetch(`/schedules/${selectedSchedule}/attendance`, {
+            const res = await fetch(`${API_BASE_URL}/schedules/${selectedSchedule}/attendance`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -44,11 +62,25 @@ const AttendanceRecording = () => {
                 },
                 body: JSON.stringify({ attendees })
             });
+            if (!res.ok) throw new Error('Failed to record attendance');
             setAttendees([]);
             setSelectedSchedule('');
+            toast.success('Посещаемость записана');
         } catch (error) {
             console.error(error);
+            toast.error('Ошибка записи посещаемости');
         }
+    };
+
+    const formatDateTime = (date, time) => {
+        const [year, month, day] = date.split('-');
+        const formattedDate = `${day}.${month}.${year}`;
+        const formattedTime = time.split(':').slice(0, 2).join(':');
+        return `${formattedDate} ${formattedTime}`;
+    };
+
+    const translateEventType = (eventType) => {
+        return eventType === 'practice' ? 'Тренировка' : 'Игра';
     };
 
     return (
@@ -57,7 +89,9 @@ const AttendanceRecording = () => {
             <select onChange={handleScheduleChange} value={selectedSchedule} className="border p-2 mb-4">
                 <option value="">Выберите событие</option>
                 {schedules.map(schedule => (
-                    <option key={schedule.id} value={schedule.id}>{schedule.event_type} - {schedule.date}</option>
+                    <option key={schedule.id} value={schedule.id}>
+                        {schedule.team_name} - ({translateEventType(schedule.event_type)}) - {formatDateTime(schedule.date, schedule.time)}
+                    </option>
                 ))}
             </select>
             {players.length > 0 && (

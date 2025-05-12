@@ -1,4 +1,5 @@
 import React, { createContext, useState, useEffect, useContext } from 'react';
+import { toast } from 'react-toastify';
 
 export const AuthContext = createContext();
 
@@ -27,13 +28,32 @@ export const AuthProvider = ({ children }) => {
         }
     }, []);
 
+    const login = async (email, password) => {
+        try {
+            const response = await fetch('http://localhost:5000/login', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ email, password })
+            });
+            const data = await response.json();
+            if (response.ok) {
+                localStorage.setItem('token', data.token);
+                setAuth({ user: data.user, token: data.token });
+            } else {
+                throw new Error(data.message || 'Login failed');
+            }
+        } catch (error) {
+            throw error;
+        }
+    };
+
     const logout = () => {
         localStorage.removeItem('token');
         setAuth({ user: null, token: null });
     };
 
     return (
-        <AuthContext.Provider value={{ auth, setAuth, logout }}>
+        <AuthContext.Provider value={{ auth, setAuth, login, logout }}>
             {children}
         </AuthContext.Provider>
     );

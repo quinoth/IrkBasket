@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'react-toastify';
+import { API_BASE_URL } from '../config';
 
 const RegistrationForm = () => {
     const [formData, setFormData] = useState({
@@ -16,10 +17,16 @@ const RegistrationForm = () => {
     const navigate = useNavigate();
 
     useEffect(() => {
-        fetch('/public/teams')
-            .then(res => res.json())
+        fetch(`${API_BASE_URL}/public/teams`)
+            .then(res => {
+                if (!res.ok) throw new Error('Failed to fetch teams');
+                return res.json();
+            })
             .then(data => setTeams(data))
-            .catch(err => console.error(err));
+            .catch(err => {
+                console.error(err);
+                toast.error('Ошибка загрузки команд');
+            });
     }, []);
 
     const handleChange = (e) => {
@@ -68,7 +75,7 @@ const RegistrationForm = () => {
             registerData.team_id = formData.team_id;
         }
         try {
-            const response = await fetch('/register', {
+            const response = await fetch(`${API_BASE_URL}/register`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(registerData)
@@ -90,6 +97,7 @@ const RegistrationForm = () => {
                 toast.error(data.message);
             }
         } catch (error) {
+            console.error(error);
             toast.error('Ошибка регистрации');
         }
     };

@@ -150,7 +150,7 @@ def login():
 
     if user and bcrypt.checkpw(password.encode('utf-8'), user[4].encode('utf-8')):
         token = jwt.encode({
-            'user_id': user[0],  # Изменено с 'id' на 'user_id' для соответствия @token_required
+            'user_id': user[0],
             'role': user[5], 
             'exp': datetime.utcnow() + timedelta(hours=1)
         }, app.config['SECRET_KEY'], algorithm='HS256')
@@ -253,15 +253,33 @@ def get_schedules(user_id):
     conn = get_db_connection()
     cur = conn.cursor()
     if role == 'trainer':
-        cur.execute("SELECT id, team_id, event_type, date, time, location, description FROM schedules")
+        cur.execute("""
+            SELECT s.id, s.team_id, t.name as team_name, s.event_type, s.date, s.time, s.location, s.description
+            FROM schedules s
+            JOIN teams t ON s.team_id = t.id
+        """)
     else:
         if team_id is None:
             return jsonify({"message": "User is not assigned to a team"}), 400
-        cur.execute("SELECT id, team_id, event_type, date, time, location, description FROM schedules WHERE team_id = %s", (team_id,))
+        cur.execute("""
+            SELECT s.id, s.team_id, t.name as team_name, s.event_type, s.date, s.time, s.location, s.description
+            FROM schedules s
+            JOIN teams t ON s.team_id = t.id
+            WHERE s.team_id = %s
+        """, (team_id,))
     schedules = cur.fetchall()
     cur.close()
     conn.close()
-    return jsonify([{"id": s[0], "team_id": s[1], "event_type": s[2], "date": str(s[3]), "time": str(s[4]), "location": s[5], "description": s[6]} for s in schedules])
+    return jsonify([{
+        "id": s[0],
+        "team_id": s[1],
+        "team_name": s[2],
+        "event_type": s[3],
+        "date": str(s[4]),
+        "time": str(s[5]),
+        "location": s[6],
+        "description": s[7]
+    } for s in schedules])
 
 @app.route('/schedules', methods=['POST'])
 @token_required
@@ -322,6 +340,27 @@ def get_my_attendance(user_id):
     cur.close()
     conn.close()
     return jsonify([{"schedule_id": a[0], "event_type": a[1], "date": str(a[2]), "time": str(a[3]), "location": a[4]} for a in attendance])
+
+@app.route('/users', methods=['GET'])
+@token_required
+def get_users_by_team(user_id):
+    user_data = get_user_data(user_id)
+    if not user_data or user_data['role'] != 'trainer':
+        return jsonify({"message": "Unauthorized"}), 403
+    team_id = request.args.get('team_id')
+    if not team_id:
+        return jsonify({"message": "Team ID is required"}), 400
+    conn = get_db_connection()
+    cur = conn.cursor()
+    cur.execute("""
+        SELECT id, first_name, last_name
+        FROM users
+        WHERE role = 'player' AND team_id = %s
+    """, (team_id,))
+    players = cur.fetchall()
+    cur.close()
+    conn.close()
+    return jsonify([{"id": p[0], "first_name": p[1], "last_name": p[2]} for p in players])
 
 if __name__ == '__main__':
     app.run(debug=True, port=5000)
