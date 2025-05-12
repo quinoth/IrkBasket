@@ -1,23 +1,15 @@
 from flask import Flask, request, jsonify
 from flask_cors import CORS
-import re
-import bcrypt
 import jwt
-import datetime
+import bcrypt
+import re
+from datetime import datetime, timedelta
+from functools import wraps
 from db import get_db_connection
-from config import SECRET_KEY
 
 app = Flask(__name__)
-app.config['SECRET_KEY'] = SECRET_KEY
-
-CORS(app, resources={
-    r"/*": {
-        "origins": "http://localhost:3000",
-        "methods": ["GET", "POST", "PUT", "OPTIONS"],
-        "allow_headers": ["Content-Type", "Authorization"],
-        "supports_credentials": True
-    }
-})
+CORS(app)
+app.config.from_object('config')
 
 def validate_password(password):
     if len(password) < 8:
@@ -26,10 +18,25 @@ def validate_password(password):
         return False
     if not re.search(r'[a-z]', password):
         return False
-    if not re.search(r'\d', password):
+    if not re.search(r'[0-9]', password):
         return False
     return True
-    
+
+def token_required(f):
+    @wraps(f)
+    def decorated(*args, **kwargs):
+        token = None
+        if 'Authorization' in request.headers:
+            token = request.headers['Authorization'].split(" ")[1]
+        if not token:
+            return jsonify({"message": "Token is missing"}), 401
+        try:
+            data = jwt.decode(token, app.config['SECRET_KEY'], algorithms=["HS256"])
+            user_id = data['user_id']
+        except:
+            return jsonify({"message": "Token is invalid"}), 401
+        return f(user_id, *args, **kwargs)
+    return decorated
 
 def get_user_data(user_id):
     conn = get_db_connection()
@@ -40,8 +47,45 @@ def get_user_data(user_id):
     conn.close()
     if data:
         return {"role": data[0], "team_id": data[1]}
-    return None    
+    return None
 
+@app.route('/user', methods=['GET'])
+@token_required
+def get_user(user_id):
+    conn = get_db_connection()
+    cur = conn.cursor()
+    cur.execute("""
+        SELECT u.id, u.first_name, u.last_name, u.email, u.role, u.team_id, t.name as team_name
+        FROM users u
+        LEFT JOIN teams t ON u.team_id = t.id
+        WHERE u.id = %s
+    """, (user_id,))
+    row = cur.fetchone()
+    cur.close()
+    conn.close()
+    if row:
+        user = {
+            "id": row[0],
+            "first_name": row[1],
+            "last_name": row[2],
+            "email": row[3],
+            "role": row[4],
+            "team_id": row[5],
+            "team_name": row[6]
+        }
+        return jsonify(user)
+    else:
+        return jsonify({"message": "User not found"}), 404
+
+@app.route('/public/teams', methods=['GET'])
+def get_public_teams():
+    conn = get_db_connection()
+    cur = conn.cursor()
+    cur.execute("SELECT id, name FROM teams")
+    teams = cur.fetchall()
+    cur.close()
+    conn.close()
+    return jsonify([{"id": t[0], "name": t[1]} for t in teams])
 
 @app.route('/register', methods=['POST'])
 def register():
@@ -51,34 +95,45 @@ def register():
     email = data.get('email')
     password = data.get('password')
     role = data.get('role')
+    team_id = data.get('team_id') if role == 'player' else None
 
     if not all([first_name, last_name, email, password, role]):
-        return jsonify({'message': 'Missing fields'}), 400
+        return jsonify({"message": "All fields are required"}), 400
+
+    if role not in ['player', 'trainer']:
+        return jsonify({"message": "Invalid role"}), 400
+
+    if role == 'player' and not team_id:
+        return jsonify({"message": "Team ID is required for players"}), 400
 
     if not validate_password(password):
-        return jsonify({'message': 'Password must be at least 8 characters long, include uppercase, lowercase, and a number'}), 400
+        return jsonify({"message": "Password must be at least 8 characters long and contain uppercase, lowercase, and numbers"}), 400
 
-    try:
-        password_hash = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
-        
-        conn = get_db_connection()
-        cur = conn.cursor()
-        
-        cur.execute(
-            "INSERT INTO users (first_name, last_name, email, password_hash, role) VALUES (%s, %s, %s, %s, %s)",
-            (first_name, last_name, email, password_hash, role)
-        )
-        
-        conn.commit()
-        return jsonify({'message': 'User registered successfully'}), 201
-        
-    except Exception as e:
-        conn.rollback()
-        return jsonify({'message': str(e)}), 500
-        
-    finally:
-        if 'cur' in locals(): cur.close()
-        if 'conn' in locals(): conn.close()
+    conn = get_db_connection()
+    cur = conn.cursor()
+    cur.execute("SELECT id FROM users WHERE email = %s", (email,))
+    if cur.fetchone():
+        cur.close()
+        conn.close()
+        return jsonify({"message": "Email already exists"}), 400
+
+    if role == 'player':
+        cur.execute("SELECT id FROM teams WHERE id = %s", (team_id,))
+        if cur.fetchone() is None:
+            cur.close()
+            conn.close()
+            return jsonify({"message": "Team not found"}), 404
+
+    hashed_password = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
+
+    cur.execute("INSERT INTO users (first_name, last_name, email, password_hash, role, team_id) VALUES (%s, %s, %s, %s, %s, %s) RETURNING id",
+                (first_name, last_name, email, hashed_password, role, team_id))
+    user_id = cur.fetchone()[0]
+    conn.commit()
+    cur.close()
+    conn.close()
+
+    return jsonify({"message": "User registered successfully", "id": user_id}), 201
 
 @app.route('/login', methods=['POST'])
 def login():
