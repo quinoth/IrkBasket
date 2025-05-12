@@ -288,6 +288,42 @@ def create_schedule(user_id):
     cur.close()
     conn.close()
     return jsonify({"message": "Schedule created", "id": schedule_id}), 201
+    
+    
+@app.route('/schedules/<int:schedule_id>/attendance', methods=['POST'])
+@token_required
+def record_attendance(user_id, schedule_id):
+    user_data = get_user_data(user_id)
+    if not user_data or user_data['role'] != 'trainer':
+        return jsonify({"message": "Unauthorized"}), 403
+    data = request.get_json()
+    attendees = data.get('attendees', [])
+    conn = get_db_connection()
+    cur = conn.cursor()
+    cur.execute("DELETE FROM attendance WHERE schedule_id = %s", (schedule_id,))
+    for attendee_id in attendees:
+        cur.execute("INSERT INTO attendance (schedule_id, user_id) VALUES (%s, %s)", (schedule_id, attendee_id))
+    conn.commit()
+    cur.close()
+    conn.close()
+    return jsonify({"message": "Attendance recorded"}), 200
+
+@app.route('/attendance', methods=['GET'])
+@token_required
+def get_my_attendance(user_id):
+    conn = get_db_connection()
+    cur = conn.cursor()
+    cur.execute("""
+        SELECT s.id, s.event_type, s.date, s.time, s.location
+        FROM attendance a
+        JOIN schedules s ON a.schedule_id = s.id
+        WHERE a.user_id = %s
+        ORDER BY s.date DESC, s.time DESC
+    """, (user_id,))
+    attendance = cur.fetchall()
+    cur.close()
+    conn.close()
+    return jsonify([{"schedule_id": a[0], "event_type": a[1], "date": str(a[2]), "time": str(a[3]), "location": a[4]} for a in attendance])
 
 if __name__ == '__main__':
     app.run(debug=True, port=5000)
