@@ -36,3 +36,4 @@ CREATE TABLE attendance (
     user_id INTEGER NOT NULL REFERENCES users(id),
     PRIMARY KEY (schedule_id, user_id)
 );
+
