@@ -241,6 +241,53 @@ def create_team(user_id):
     cur.close()
     conn.close()
     return jsonify({"message": "Team created", "id": team_id}), 201
+    
+    
+@app.route('/schedules', methods=['GET'])
+@token_required
+def get_schedules(user_id):
+    user_data = get_user_data(user_id)
+    if not user_data:
+        return jsonify({"message": "User not found"}), 404
+    role = user_data['role']
+    team_id = user_data['team_id']
+    conn = get_db_connection()
+    cur = conn.cursor()
+    if role == 'trainer':
+        cur.execute("SELECT id, team_id, event_type, date, time, location, description FROM schedules")
+    else:
+        if team_id is None:
+            return jsonify({"message": "User is not assigned to a team"}), 400
+        cur.execute("SELECT id, team_id, event_type, date, time, location, description FROM schedules WHERE team_id = %s", (team_id,))
+    schedules = cur.fetchall()
+    cur.close()
+    conn.close()
+    return jsonify([{"id": s[0], "team_id": s[1], "event_type": s[2], "date": str(s[3]), "time": str(s[4]), "location": s[5], "description": s[6]} for s in schedules])
+
+@app.route('/schedules', methods=['POST'])
+@token_required
+def create_schedule(user_id):
+    user_data = get_user_data(user_id)
+    if not user_data or user_data['role'] != 'trainer':
+        return jsonify({"message": "Unauthorized"}), 403
+    data = request.get_json()
+    team_id = data.get('team_id')
+    event_type = data.get('event_type')
+    date = data.get('date')
+    time = data.get('time')
+    location = data.get('location')
+    description = data.get('description')
+    if not all([team_id, event_type, date, time]):
+        return jsonify({"message": "Missing required fields"}), 400
+    conn = get_db_connection()
+    cur = conn.cursor()
+    cur.execute("INSERT INTO schedules (team_id, event_type, date, time, location, description, created_by) VALUES (%s, %s, %s, %s, %s, %s, %s) RETURNING id", 
+                (team_id, event_type, date, time, location, description, user_id))
+    schedule_id = cur.fetchone()[0]
+    conn.commit()
+    cur.close()
+    conn.close()
+    return jsonify({"message": "Schedule created", "id": schedule_id}), 201
 
 if __name__ == '__main__':
     app.run(debug=True, port=5000)
